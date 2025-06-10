@@ -28,7 +28,6 @@ function isEmailRequest(text) {
   const isThirdPerson = /<@([A-Z0-9]+)>|his|her|their|someone|[a-z]+['’]s/.test(
     lowered
   );
-
   const matchesGujarati = gujaratiPatterns.some((re) => re.test(lowered));
 
   return (isAsking && isEmailRelated && isThirdPerson) || matchesGujarati;
@@ -38,37 +37,27 @@ app.message(async ({ message, say, client }) => {
   const text = message.text;
   if (!isEmailRequest(text)) return;
 
-  let userId = null;
-
+  // Try to extract the mentioned user
   const mentionMatch = text.match(/<@([A-Z0-9]+)>/);
-  if (mentionMatch) {
-    userId = mentionMatch[1];
+  const mentionedUserId = mentionMatch?.[1];
+
+  if (!mentionedUserId) {
+    await say("Please mention the person you're asking about.");
+    return;
   }
 
   try {
-    if (!userId) {
-      const users = await client.users.list();
-      const nameText = text.replace(/[^a-zA-Z\s]/g, "").toLowerCase();
-      const matched = users.members.find((u) =>
-        u.profile?.real_name?.toLowerCase().includes(nameText)
-      );
-      if (matched) userId = matched.id;
-    }
+    const userInfo = await client.users.info({ user: mentionedUserId });
+    const email = userInfo?.user?.profile?.email;
 
-    if (userId) {
-      const info = await client.users.info({ user: userId });
-      const email = info?.user?.profile?.email;
-      if (email) {
-        await say(`<@${userId}>'s email is: ${email}`);
-      } else {
-        await say(`Email not found for <@${userId}>.`);
-      }
+    if (email) {
+      await say(`<@${mentionedUserId}>'s email is: ${email}`);
     } else {
-      await say(`Couldn't identify the user you're referring to.`);
+      await say(`Sorry, I couldn't find an email for <@${mentionedUserId}>.`);
     }
   } catch (err) {
-    console.error(err);
-    await say(`Error fetching email.`);
+    console.error("Error fetching user email:", err);
+    await say(`Something went wrong while fetching email.`);
   }
 });
 
