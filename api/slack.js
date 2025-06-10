@@ -12,8 +12,8 @@ const app = new App({
 });
 
 function isEmailRequest(text) {
-  const lowered = text.toLowerCase();
-
+  const lowered = String(text).toLowerCase();
+  console.log("Received message:", lowered);
   const gujaratiPatterns = [
     /tamari.*(mail|email).*aap(j|o|jo|jone)/,
     /tamari.*(mail|email).*muk(j|o|jo|jone)/,
@@ -35,12 +35,13 @@ function isEmailRequest(text) {
 
 app.message(async ({ message, say, client }) => {
   const text = message.text;
+  console.log("isEmailRequest(text):", isEmailRequest(text));
   if (!isEmailRequest(text)) return;
 
   // Try to extract the mentioned user
   const mentionMatch = text.match(/<@([A-Z0-9]+)>/);
   const mentionedUserId = mentionMatch?.[1];
-
+  console.log("Mentioned user ID:", mentionedUserId);
   if (!mentionedUserId) {
     await say("Please mention the person you're asking about.");
     return;
