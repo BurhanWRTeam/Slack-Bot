@@ -1,4 +1,3 @@
-require("dotenv").config();
 const { App, ExpressReceiver } = require("@slack/bolt");
 
 const receiver = new ExpressReceiver({
@@ -11,54 +10,59 @@ const app = new App({
   receiver,
 });
 
+// Match @username from message
+function extractUsername(text) {
+  const match = text.match(/@([a-zA-Z0-9._-]+)/);
+  return match ? match[1] : null;
+}
+
+// Check if it's an email query
 function isEmailRequest(text) {
-  const lowered = String(text).toLowerCase();
-  console.log("Received message:", lowered);
-  const gujaratiPatterns = [
-    /tamari.*(mail|email).*aap(j|o|jo|jone)/,
-    /tamari.*(mail|email).*muk(j|o|jo|jone)/,
-    /tamaru.*(mail|email).*aap(j|o|jo|jone)/,
-    /tamaru.*(mail|email).*muk(j|o|jo|jone)/,
-    /sir.*tamari.*(mail|email)/,
-  ];
-
-  const requestWords = ["what", "give", "tell", "send", "need", "know", "get"];
-  const isAsking = requestWords.some((w) => lowered.includes(w));
-  const isEmailRelated = /mail\s*id|email\s*id|email/.test(lowered);
-  const isThirdPerson = /<@([A-Z0-9]+)>|his|her|their|someone|[a-z]+['’]s/.test(
-    lowered
+  const lowered = text.toLowerCase();
+  return (
+    lowered.includes("email id") ||
+    lowered.includes("mail id") ||
+    lowered.includes("email")
   );
-  const matchesGujarati = gujaratiPatterns.some((re) => re.test(lowered));
-
-  return (isAsking && isEmailRelated && isThirdPerson) || matchesGujarati;
 }
 
 app.message(async ({ message, say, client }) => {
-  const text = message.text;
-  console.log("isEmailRequest(text):", isEmailRequest(text));
+  if (message.subtype || message.bot_id) return;
+
+  const text = message.text || "";
   if (!isEmailRequest(text)) return;
 
-  // Try to extract the mentioned user
-  const mentionMatch = text.match(/<@([A-Z0-9]+)>/);
-  const mentionedUserId = mentionMatch?.[1];
-  console.log("Mentioned user ID:", mentionedUserId);
-  if (!mentionedUserId) {
-    await say("Please mention the person you're asking about.");
+  const username = extractUsername(text);
+  if (!username) {
+    await say("Please mention the user like `@username` to get their email.");
     return;
   }
 
   try {
-    const userInfo = await client.users.info({ user: mentionedUserId });
-    const email = userInfo?.user?.profile?.email;
+    // Fetch all users in the workspace
+    const allUsers = await client.users.list();
+    const matchedUser = allUsers.members.find((u) => {
+      const uname = u.name?.toLowerCase();
+      const display = u.profile?.display_name?.toLowerCase();
+      return (
+        uname === username.toLowerCase() || display === username.toLowerCase()
+      );
+    });
 
+    if (!matchedUser) {
+      await say(`User @${username} not found.`);
+      return;
+    }
+
+    const email = matchedUser?.profile?.email;
     if (email) {
-      await say(`<@${mentionedUserId}>'s email is: ${email}`);
+      await say(`📧 @${username}'s email is: \`${email}\``);
     } else {
-      await say(`Sorry, I couldn't find an email for <@${mentionedUserId}>.`);
+      await say(`Couldn't find an email for @${username}.`);
     }
   } catch (err) {
-    console.error("Error fetching user email:", err);
-    await say(`Something went wrong while fetching email.`);
+    console.error("Error:", err);
+    await say("Something went wrong while retrieving the email.");
   }
 });
 
