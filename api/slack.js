@@ -138,10 +138,9 @@ app.message(async ({ message, say, client }) => {
       const username = extractUsernameFromText(text);
 
       if (!username) {
-        await say({
-          text: "❓ Please mention a user (e.g., `@username`) or use a proper Slack mention to get their email.",
-          thread_ts: message.ts, // Reply in thread to keep channel clean
-        });
+        await say(
+          "❓ Please mention a user (e.g., `@username`) or use a proper Slack mention to get their email."
+        );
         return;
       }
 
@@ -150,26 +149,18 @@ app.message(async ({ message, say, client }) => {
     }
 
     if (!user) {
-      await say({
-        text: `❌ User ${identifier} not found in this workspace.`,
-        thread_ts: message.ts,
-      });
+      await say(`❌ User ${identifier} not found in this workspace.`);
       return;
     }
 
     const response = formatEmailResponse(user, identifier);
-
-    await say({
-      text: response,
-      thread_ts: message.ts,
-    });
+    await say(response);
   } catch (error) {
     console.error("Error processing email request:", error);
 
-    await say({
-      text: "⚠️ Something went wrong while retrieving the email. Please try again.",
-      thread_ts: message.ts,
-    });
+    await say(
+      "⚠️ Something went wrong while retrieving the email. Please try again."
+    );
   }
 });
 
